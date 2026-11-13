@@ -1,0 +1,24 @@
+[package]
+name = "scripta-playground"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[[bin]]
+name = "scr-playground"
+path = "src/main.rs"
+
+[dependencies]
+httparse = "1.10"
+serde_json = "1.0"
+tempfile = "3.27"
+getrandom = "0.3"
+ctrlc = "3.5"
+process-wrap = { version = "8.2.2", features = ["std"] }
+
+[profile.release]
+strip = true
+lto = "thin"
+
+[lints.rust]
+unsafe_code = "forbid"

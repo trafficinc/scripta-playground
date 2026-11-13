@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5f1">
+  <title>Scripta Playground</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <svg class="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m9 5 11 7-11 7Z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z M14 3v6h6 M8 13h8 M8 17h5"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h5l3 3h6a2 2 0 0 1 2 2v2 M3 8h6l2 3h11l-3 10H3Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12 m-5-5 5 5 5-5 M4 16v5h16v-5"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 7 5 5-5 5 m8 0h6"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 5v16 M3 3c4-1 7 0 9 2 2-2 5-3 9-2v16c-4-1-7 0-9 2-2-2-5-3-9-2Z"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14 m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12 M6 18 18 6"/></symbol>
+  </defs></svg>
+  <header class="app-header">
+    <a class="brand" href="/" aria-label="Scripta Playground home"><span class="brand-mark" aria-hidden="true">s<span>_</span></span>scripta<span class="brand-divider">/</span><span class="brand-product">playground</span></a>
+    <div class="header-actions"><span class="connection"><span class="status-dot"></span>Local session</span><button id="quit" class="button subtle small">Quit session<svg class="icon"><use href="#i-close"/></svg></button></div>
+  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-heading"><span class="eyebrow">YOUR STARTING POINT</span><span class="example-count">04</span></div>
+      <nav class="examples" aria-label="Example scripts">
+        <button class="example-card selected" data-example="hello" aria-pressed="true"><span class="example-icon">&gt;_</span><span><strong>Hello, Scripta</strong><small>Your first few lines</small></span><span class="selected-dot"></span></button>
+        <button class="example-card" data-example="loops" aria-pressed="false"><span class="example-icon">↻</span><span><strong>Loops &amp; numbers</strong><small>Make a little repetition</small></span><span class="selected-dot"></span></button>
+        <button class="example-card" data-example="arrays" aria-pressed="false"><span class="example-icon">[ ]</span><span><strong>Arrays &amp; JSON</strong><small>Give your data a shape</small></span><span class="selected-dot"></span></button>
+        <button class="example-card" data-example="functions" aria-pressed="false"><span class="example-icon">ƒ</span><span><strong>Functions</strong><small>Write once, use again</small></span><span class="selected-dot"></span></button>
+      </nav>
+      <div class="sidebar-divider"></div>
+      <p class="sidebar-label">HAVE SOMETHING IN MIND?</p>
+      <button id="load" class="sidebar-action"><svg class="icon"><use href="#i-open"/></svg>Open a script<svg class="icon trailing"><use href="#i-arrow"/></svg></button>
+      <input id="file" type="file" accept=".scr,text/plain" hidden>
+      <div class="sidebar-bottom">
+        <div class="tip"><span class="tip-label">MAKE IT YOURS</span><p>Change a name. Add a loop.<br>The best way to learn is to run it.</p><span class="tip-shortcut"><kbd class="modifier">⌘</kbd><kbd>↵</kbd><span>to run your script</span></span></div>
+        <button id="guide-open" class="sidebar-action guide-button"><svg class="icon"><use href="#i-book"/></svg>Quick language guide<svg class="icon trailing"><use href="#i-arrow"/></svg></button>
+        <span class="offline-note"><span class="status-dot"></span>No cloud. Just your computer.</span>
+      </div>
+    </aside>
+    <main>
+      <div class="workspace-heading"><div><div class="breadcrumb">Workspace<span>/</span>Scratchpad</div><h1>A little code. A new possibility.</h1><p id="example-description">Start with a greeting, then take it somewhere new.</p></div><span class="workspace-tag"><svg class="icon"><use href="#i-terminal"/></svg>Scripta</span></div>
+      <div class="workspace-toolbar"><div class="mobile-examples"><label class="sr-only" for="example">Example script</label><select id="example"><option value="hello">Hello, Scripta</option><option value="loops">Loops &amp; numbers</option><option value="arrays">Arrays &amp; JSON</option><option value="functions">Functions</option></select></div><span class="workspace-label"><span class="status-dot"></span>Ready to experiment</span><div class="toolbar-actions"><button id="load-mobile" class="button subtle mobile-open" aria-label="Open a script" title="Open a script"><svg class="icon"><use href="#i-open"/></svg></button><button id="save" class="button subtle" aria-label="Save script" title="Save script"><svg class="icon"><use href="#i-download"/></svg>Save script</button><span class="toolbar-divider"></span><button id="stop" class="button stop-button" disabled><span class="stop-icon"></span>Stop</button><button id="run" class="button primary"><svg class="icon"><use href="#i-play"/></svg><span id="run-label">Run script</span><span class="run-shortcut"><span class="modifier">⌘</span> ↵</span></button></div></div>
+      <div class="workspace">
+        <section class="editor-panel" aria-labelledby="editor-title">
+          <div class="editor-head"><div class="file-tab"><svg class="icon"><use href="#i-file"/></svg><h2 id="editor-title">playground.scr</h2><span class="file-dot" title="Scratchpad"></span></div><label class="font-control" for="font-size">Aa<select id="font-size" aria-label="Editor font size"><option value="13">13</option><option value="14" selected>14</option><option value="16">16</option></select></label></div>
+          <div class="editor-body"><div class="gutter" aria-hidden="true"><pre id="line-numbers">1</pre></div><div class="code-stage"><div id="active-line" class="active-line" aria-hidden="true"></div><pre id="highlight" aria-hidden="true"></pre><textarea id="editor" aria-label="Scripta source code" aria-describedby="editor-hint" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="off"></textarea></div></div>
+          <div class="editor-foot"><span id="cursor">Ln 1, Col 1</span><div><span id="lines">1 line</span><span>UTF-8</span><span class="language-label">Scripta</span></div></div>
+        </section>
+        <section class="output-panel" aria-labelledby="output-title">
+          <div class="output-head"><h2 id="output-title"><svg class="icon"><use href="#i-terminal"/></svg>Console</h2><span id="run-state" class="run-state" data-state="idle">Ready</span></div>
+          <div class="output-toolbar"><div role="tablist" aria-label="Console views"><button id="tab-output" class="console-tab active" role="tab" aria-selected="true" aria-controls="output-content">Output<span id="output-count" class="count" hidden>0</span></button><button id="tab-errors" class="console-tab" role="tab" aria-selected="false" aria-controls="error-content" tabindex="-1">Errors<span id="error-count" class="count" hidden>0</span></button></div><div class="console-actions"><button id="copy" class="icon-button" aria-label="Copy visible output" title="Copy output"><svg class="icon"><use href="#i-copy"/></svg></button><button id="clear" class="button subtle small">Clear</button></div></div>
+          <div class="console"><div id="empty" class="empty-state"><div class="empty-terminal" aria-hidden="true"><span class="terminal-dots"><i></i><i></i><i></i></span><svg class="icon"><use href="#i-terminal"/></svg><span class="terminal-cursor"></span></div><h3 id="empty-title">Good things start with a run.</h3><p id="empty-description">Your script’s output will appear here.<br>Make a change and see what happens.</p><button id="empty-run" class="text-button">Run your first script<svg class="icon"><use href="#i-arrow"/></svg></button></div><div id="output-content" role="tabpanel" aria-labelledby="tab-output" tabindex="0"><pre id="stdout"></pre></div><div id="error-content" role="tabpanel" aria-labelledby="tab-errors" tabindex="0" hidden><pre id="stderr" class="error"></pre></div></div>
+          <div class="console-foot"><span class="status-dot"></span><span id="status" role="status" aria-live="polite">Waiting for your first run</span></div>
+        </section>
+      </div>
+      <div class="workspace-notes"><span id="editor-hint"><kbd class="modifier">⌘</kbd><kbd>↵</kbd> Run<span class="note-divider">/</span><kbd>Tab</kbd> Indent<span class="note-divider">/</span><kbd class="modifier">⌘</kbd><kbd>S</kbd> Save</span><span>10s run limit<span class="note-divider">·</span>Works offline</span></div>
+      <footer><span class="footer-mark">s_</span><span>A local scratchpad for trusted scripts. Scripts run with your account’s permissions.</span><button id="session-details" class="text-button">Session details<svg class="icon"><use href="#i-arrow"/></svg></button></footer>
+    </main>
+  </div>
+  <dialog id="guide" aria-labelledby="guide-title"><div class="dialog-head"><div><span class="eyebrow">KEEP THIS HANDY</span><h2 id="guide-title">A quick guide to Scripta</h2></div><button id="guide-close" class="icon-button" aria-label="Close guide"><svg class="icon"><use href="#i-close"/></svg></button></div><div class="guide-grid"><section><h3>Start a script</h3><pre>&lt;?scr
+$name = "world";
+echo "Hello, " . $name . "!\n";</pre><p>Variables start with <code>$</code>. Use <code>.</code> to join strings and <code>;</code> to end statements.</p></section><section><h3>Make something reusable</h3><pre>function greet($name: string): string {
+    return "Hello, " . $name;
+}
+echo greet("Scripta");</pre><p>Types follow parameter names. Compare values with <code>===</code> and <code>!==</code>.</p></section><section><h3>Keep moving</h3><pre>for ($i = 1; $i &lt;= 5; $i += 1) {
+    echo str($i) . "\n";
+}</pre><p>Convert numbers with <code>str()</code> when joining them to strings.</p></section><section><h3>About this session</h3><p>The playground runs only on your computer. Each run uses a fresh temporary folder and has no interactive input. Output appears when execution finishes.</p><p>Scripts can access files, processes, and the network with your account’s permissions. Only run code you trust. Use Quit session to stop the local server.</p></section></div></dialog>
+</body>
+</html>
