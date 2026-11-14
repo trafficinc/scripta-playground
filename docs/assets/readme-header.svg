@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" fill="none" role="img" aria-labelledby="title description">
+  <title id="title">Scripta Playground</title>
+  <desc id="description">A local browser playground, illustrated with a Scripta greeting and its console output.</desc>
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#d7d9cd"/>
+    </pattern>
+    <linearGradient id="paper" x1="0" y1="0" x2="1280" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffefa"/>
+      <stop offset="1" stop-color="#eeeee4"/>
+    </linearGradient>
+    <clipPath id="rounded"><rect width="1280" height="420" rx="20"/></clipPath>
+  </defs>
+  <g clip-path="url(#rounded)">
+    <rect width="1280" height="420" fill="url(#paper)"/>
+    <rect x="590" width="690" height="420" fill="url(#grid)"/>
+    <circle cx="1198" cy="45" r="170" stroke="#dc633e" stroke-opacity=".12" stroke-width="48"/>
+    <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+      <rect x="52" y="48" width="46" height="46" rx="13" fill="#dc633e"/>
+      <text x="61" y="79" fill="#fffefa" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="29" font-weight="700" letter-spacing="-4">s_</text>
+      <text x="112" y="79" fill="#262b2b" font-size="28" font-weight="700" letter-spacing="-1">scripta<tspan fill="#a5aa9e" font-weight="400"> / </tspan><tspan fill="#65705f" font-size="22" font-weight="400" letter-spacing="0">playground</tspan></text>
+      <text x="54" y="277" fill="#65705f" font-size="18">Write, run, and explore Scripta in your browser.</text>
+      <rect x="54" y="324" width="120" height="30" rx="15" fill="#e5ebdd"/>
+      <circle cx="70" cy="339" r="4" fill="#6a9074"/>
+      <text x="82" y="344" fill="#4d664b" font-size="13" font-weight="600">Runs locally</text>
+      <text x="190" y="344" fill="#737c6c" font-size="13">Your scripts. Your computer.</text>
+    </g>
+    <!-- A compact illustration of the editor, using the app's greeting example. -->
+    <rect x="650" y="63" width="572" height="308" rx="14" fill="#3e502e" opacity=".08"/>
+    <rect x="642" y="53" width="572" height="308" rx="12" fill="#1d2228"/>
+    <path d="M654 53h548a12 12 0 0 1 12 12v34H642V65a12 12 0 0 1 12-12Z" fill="#282e35"/>
+    <path d="M662 54h163" stroke="#db805c" stroke-width="2"/>
+    <g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="15">
+      <text x="665" y="82" fill="#d2d6da">playground.scr</text>
+      <rect x="1095" y="63" width="99" height="26" rx="5" fill="#dc633e"/>
+      <path d="m1109 70 9 6-9 6Z" fill="#fffefa"/>
+      <text x="1128" y="81" fill="#fffefa" font-size="12">Run</text>
+      <g fill="#697480" font-size="14">
+        <text x="667" y="135">1</text>
+        <text x="667" y="166">2</text>
+        <text x="667" y="197">3</text>
+        <text x="667" y="228">4</text>
+      </g>
+      <text x="705" y="135" fill="#db805c">&lt;?scr</text>
+      <text x="705" y="197" fill="#d2d6da"><tspan fill="#e5bd8e">$name</tspan> = <tspan fill="#a9c38a">"Scripta"</tspan>;</text>
+      <text x="705" y="228" fill="#d2d6da"><tspan fill="#c5a4d9">echo</tspan> <tspan fill="#a9c38a">"Hello, "</tspan> . <tspan fill="#e5bd8e">$name</tspan> . <tspan fill="#a9c38a">"!\n"</tspan>;</text>
+    </g>
+    <path d="M642 259h572v90a12 12 0 0 1-12 12H654a12 12 0 0 1-12-12Z" fill="#fffefa"/>
+    <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+      <text x="665" y="285" fill="#6e7867" font-size="11" font-weight="600" letter-spacing="1.5">CONSOLE</text>
+      <circle cx="1138" cy="281" r="3" fill="#6a9074"/>
+      <text x="1149" y="285" fill="#6a9074" font-size="11">Done</text>
+    </g>
+    <text x="665" y="326" fill="#34432f" font-family="'SFMono-Regular', Consolas, 'Liberation Mono', monospace" font-size="18">Hello, Scripta!</text>
+  </g>
+</svg>

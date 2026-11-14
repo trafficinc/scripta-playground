@@ -1,3 +1,5 @@
+![Scripta Playground. A local browser playground with a Scripta editor and console.](docs/assets/readme-header.svg)
+
 # Scripta Playground
 
 A separate, optional local browser playground for
