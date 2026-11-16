@@ -61,8 +61,9 @@ def read_runtime(path, target):
         safe_name(name)
         if digest(files[prefix + name]) != expected_hash:
             raise ValueError("interpreter checksum mismatch")
-    binary = "scr.exe" if "windows" in target else "scr"
-    if manifest["binary"] != binary or digest(files[prefix + binary]) != manifest["binary_sha256"]:
+    suffix = ".exe" if "windows" in target else ""
+    binary = manifest["binary"]
+    if binary not in {"scripta" + suffix, "scr" + suffix} or digest(files[prefix + binary]) != manifest["binary_sha256"]:
         raise ValueError("interpreter identity mismatch")
     return {"runtime/" + name[len(prefix):]: data for name, data in files.items()}
 
@@ -127,7 +128,7 @@ def main():
     base = f"scripta-playground-0.1.0-{args.target}"
     args.out_dir.mkdir(parents=True, exist_ok=True)
     destination = args.out_dir / (base + (".zip" if windows else ".tar.gz"))
-    executables = {executable, launcher, "runtime/scr"}
+    executables = {executable, launcher, "runtime/scripta", "runtime/scr"}
     if windows:
         with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for name, data in sorted(files.items()):

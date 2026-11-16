@@ -3,7 +3,7 @@
 # Scripta Playground
 
 A separate, optional local browser playground for
-[Scripta](https://github.com/trafficinc/scripta-lang), a scripting language.
+[Scripta](https://github.com/trafficinc/scripta), a scripting language.
 See the Scripta repository for the interpreter, language documentation, and
 interpreter build instructions. This project lives
 outside the Scripta interpreter repository and Cargo workspace. Its editor,
@@ -22,7 +22,7 @@ it completely, then launch:
 - Windows: double-click `Start Playground.cmd`.
 - Linux: run `./start-playground.sh` from the extracted folder.
 
-The standalone download bundles `scr` under `runtime/`; users do not need Rust,
+The standalone download bundles Scripta under `runtime/`; users do not need Rust,
 Python, Node, Docker, or a separate Scripta installation. The launcher opens the
 browser automatically and prints a fallback URL. Quit from the page or press
 Ctrl+C in the launcher terminal. Closing the browser tab alone leaves the server
@@ -33,23 +33,25 @@ built and tested on each supported platform before being published.
 
 ## Use with an existing interpreter
 
-Put `scr-playground` (`scr-playground.exe` on Windows) beside `scr`, or add the
+Put `scr-playground` (`scr-playground.exe` on Windows) beside `scripta`, or add the
 playground folder to PATH. With an interpreter containing the optional launcher:
 
 ```sh
-scr playground
-scr playground --no-open
+scripta playground
+scripta playground --no-open
 ```
 
-The Scripta executable is currently named `scr`. This command launches the
+The primary Scripta executable is `scripta`; the compatibility name `scr` is also
+supported. This command launches the
 separately installed companion and passes the current interpreter's absolute
 path, so it uses your installed interpreter instead of the bundled copy.
 It does not download or install anything automatically.
 
 Alternatively set `SCR_PLAYGROUND_BIN` to the companion's full executable path.
-You can run the companion directly with `scr-playground --scr /path/to/scr`;
-direct launch also searches `SCR_BIN`, the bundled runtime, adjacent `scr`, and
-PATH, in that order. Uninstall by deleting the extracted playground folder and
+You can run the companion directly with `scr-playground --scr /path/to/scripta`;
+direct launch also searches `SCR_BIN`, the bundled runtime, adjacent executables,
+and PATH, in that order, preferring `scripta` over `scr` in each directory.
+Uninstall by deleting the extracted playground folder and
 removing its PATH entry or environment override.
 
 ## What it does
@@ -77,15 +79,16 @@ can escape cleanup; this is another reason to run only trusted scripts.
 
 ## Build and check (maintainers)
 
-Install a Rust toolchain supporting edition 2024, and build the `scr` interpreter
-from the [Scripta repository](https://github.com/trafficinc/scripta-lang).
+Install a Rust toolchain supporting edition 2024, and build the `scripta` interpreter
+from the [Scripta repository](https://github.com/trafficinc/scripta).
 From the playground project directory:
 
 ```sh
 cargo build --locked --release
-SCR_TEST_BIN=/absolute/path/to/scr cargo test --locked
-target/release/scr-playground --scr /absolute/path/to/scr
-python3 tests/http_smoke.py --binary target/release/scr-playground --scr /absolute/path/to/scr
+SCR_TEST_BIN=/absolute/path/to/scripta cargo test --locked
+python3 -m unittest discover -s tests -p 'test_*.py'
+target/release/scr-playground --scr /absolute/path/to/scripta
+python3 tests/http_smoke.py --binary target/release/scr-playground --scr /absolute/path/to/scripta
 ```
 
 The execution tests require `SCR_TEST_BIN`; HTTP smoke additionally requires
@@ -100,7 +103,7 @@ and package it independently:
 ```sh
 python3 scripts/package.py \
   --binary target/release/scr-playground \
-  --runtime /path/to/scripta-0.1.0-aarch64-apple-darwin.tar.gz \
+  --runtime /path/to/scripta-0.1.1-aarch64-apple-darwin.tar.gz \
   --target aarch64-apple-darwin \
   --notices-dir /path/to/scripta/release-notices
 ```

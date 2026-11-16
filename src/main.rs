@@ -37,18 +37,19 @@ fn main() {
 }
 
 fn interpreter_path(explicit: Option<PathBuf>) -> Result<PathBuf> {
-    let name = format!("scr{}", env::consts::EXE_SUFFIX);
+    let names = ["scripta", "scr"].map(|name| format!("{name}{}", env::consts::EXE_SUFFIX));
     let executable = env::current_exe()?;
     let directory = executable
         .parent()
         .ok_or("cannot locate application directory")?;
     let candidate = explicit.or_else(|| env::var_os("SCR_BIN").map(PathBuf::from))
         .or_else(|| {
-            [directory.join("runtime").join(&name), directory.join(&name)]
-                .into_iter().find(|p| p.is_file())
+            [directory.join("runtime"), directory.to_path_buf()]
+                .into_iter().flat_map(|dir| names.iter().map(move |name| dir.join(name)))
+                .find(|p| p.is_file())
         }).or_else(|| {
             env::var_os("PATH").and_then(|path| env::split_paths(&path)
-                .map(|p| p.join(&name)).find(|p| p.is_file()))
+                .flat_map(|dir| names.iter().map(move |name| dir.join(name))).find(|p| p.is_file()))
         }).ok_or("Scripta interpreter not found. Use the complete playground download, or pass --scr /path/to/scr.")?;
     Ok(fs::canonicalize(candidate)?)
 }
@@ -75,8 +76,10 @@ fn start() -> Result<()> {
     }
     let interpreter = interpreter_path(explicit)?;
     let version = Command::new(&interpreter).arg("version").output()?;
-    if !version.status.success() || !version.stdout.starts_with(b"scr ") {
-        return Err("selected executable did not identify itself as scr".into());
+    if !version.status.success()
+        || !(version.stdout.starts_with(b"scripta ") || version.stdout.starts_with(b"scr "))
+    {
+        return Err("selected executable did not identify itself as Scripta".into());
     }
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
     listener.set_nonblocking(true)?;

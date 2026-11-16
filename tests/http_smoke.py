@@ -16,9 +16,12 @@ from urllib.parse import urlsplit
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
-    parser.add_argument("--scr", type=Path, required=True)
+    parser.add_argument("--scr", type=Path, help="Interpreter override; omit to test runtime discovery")
     args = parser.parse_args()
-    process = subprocess.Popen([str(args.binary.resolve()), "--no-open", "--scr", str(args.scr.resolve())],
+    command = [str(args.binary.resolve()), "--no-open"]
+    if args.scr:
+        command.extend(["--scr", str(args.scr.resolve())])
+    process = subprocess.Popen(command,
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         lines = queue.Queue()
@@ -96,6 +99,11 @@ def main():
             deadline = time.monotonic() + 3
             while request("/run", {"source": "<?scr"})[0] != 409:
                 assert time.monotonic() < deadline
+                # The probe can acquire the lock before the worker request.
+                # Retry that request if it lost the race to the probe.
+                if future.done():
+                    assert future.result()[0] == 409
+                    future = executor.submit(request, "/run", {"source": "<?scr sleep(60000);"})
                 time.sleep(.01)
             assert request("/stop", {})[0] == 200
             assert json.loads(future.result()[1])["reason"] == "Stopped"
