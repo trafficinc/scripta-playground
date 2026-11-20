@@ -94,6 +94,21 @@ python3 tests/http_smoke.py --binary target/release/scr-playground --scr /absolu
 The execution tests require `SCR_TEST_BIN`; HTTP smoke additionally requires
 permission to bind loopback sockets. `--no-open` keeps tests from opening a tab.
 
+### Scan for secrets
+
+Install Gitleaks with Homebrew, then run:
+
+```sh
+brew install gitleaks
+./scripts/scan-secrets.sh              # Git history across all local refs
+./scripts/scan-secrets.sh working-tree # Current files, including untracked/ignored files
+./scripts/scan-secrets.sh staged       # Staged changes before committing
+```
+
+The script works from any directory, redacts detected secrets, and returns a
+nonzero exit status if secrets are found or the scan fails. The working-tree
+scan also includes local build output; it does not scan Git history.
+
 ## Separate release packaging
 
 First build and validate a normal Scripta interpreter archive with Scripta's
