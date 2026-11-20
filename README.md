@@ -2,139 +2,96 @@
 
 # Scripta Playground
 
-A separate, optional local browser playground for
-[Scripta](https://github.com/trafficinc/scripta), a scripting language.
-See the Scripta repository for the interpreter, language documentation, and
-interpreter build instructions. This project lives
-outside the Scripta interpreter repository and Cargo workspace. Its editor,
-server, dependencies, and downloads are not included in normal Scripta builds
-or interpreter release archives.
+A local browser playground for [Scripta](https://github.com/trafficinc/scripta),
+with a syntax-colored editor, examples, and a console. It is distributed
+separately from the interpreter and works offline.
 
 ## Download and launch
 
-When standalone playground releases are available, use the Releases page of
-this repository. To build from source instead, see [Build and check](#build-and-check-maintainers).
+For a standalone executable, run `scr-playground` (`scr-playground.exe` on
+Windows). It opens your browser, uses a compatible installed Scripta when
+available, and otherwise runs its embedded interpreter. No separate installation
+is required.
 
-Use a playground archive matching your operating system and processor. Extract
-it completely, then launch:
+When standalone releases are available, download the archive for your operating
+system and processor from this repository's Releases page. Extract it, then launch:
 
 - macOS: double-click `Start Playground.command`.
 - Windows: double-click `Start Playground.cmd`.
-- Linux: run `./start-playground.sh` from the extracted folder.
+- Linux: run `./start-playground.sh`.
 
-The standalone download bundles Scripta under `runtime/`; users do not need Rust,
-Python, Node, Docker, or a separate Scripta installation. The launcher opens the
-browser automatically and prints a fallback URL. Quit from the page or press
-Ctrl+C in the launcher terminal. Closing the browser tab alone leaves the server
-running. Downloaded executables are unsigned; platform prompts may apply.
+The download bundles Scripta; no development tools or separate interpreter are
+needed. The launcher opens your browser and prints a fallback URL. Quit from the
+page or press Ctrl+C in the terminal; closing the tab leaves the server running.
+Downloaded executables are unsigned, so platform prompts may apply.
 
-These are local launchers, not signed native app installers. Downloads must be
-built and tested on each supported platform before being published.
-
-## Use with an existing interpreter
+## Use an existing interpreter
 
 Put `scr-playground` (`scr-playground.exe` on Windows) beside `scripta`, or add the
-playground folder to PATH. With an interpreter containing the optional launcher:
+playground folder to PATH. If your interpreter includes the playground launcher:
 
 ```sh
 scripta playground
-scripta playground --no-open
 ```
 
-The primary Scripta executable is `scripta`; the compatibility name `scr` is also
-supported. This command launches the
-separately installed companion and passes the current interpreter's absolute
-path, so it uses your installed interpreter instead of the bundled copy.
-It does not download or install anything automatically.
-
-Alternatively set `SCR_PLAYGROUND_BIN` to the companion's full executable path.
-You can run the companion directly with `scr-playground --scr /path/to/scripta`;
-direct launch also searches `SCR_BIN`, the bundled runtime, adjacent executables,
-and PATH, in that order, preferring `scripta` over `scr` in each directory.
-Uninstall by deleting the extracted playground folder and
-removing its PATH entry or environment override.
-
-## What it does
-
-The page provides a syntax-colored editor with line numbers, cursor position,
-font sizing, an example sidebar, Run/Stop, separate output and error tabs, output
-copying, a quick language guide, `.scr` import/download, and Ctrl/Cmd+Enter to run. Assets are built
-into the executable and require no CDN or internet connection. Each run starts
-a fresh interpreter in a temporary working directory with closed standard input.
-Output appears after execution completes. Relative files are removed afterward;
-absolute paths and host system access retain ordinary Scripta behavior.
-
-Only trusted local scripts should be run. This is not a public execution service
-or OS sandbox: scripts have your account's permissions and environment, including
-filesystem, network, and process access. The server binds only to 127.0.0.1 on a
-random port. Host and Origin validation and a random session token protect
-execution requests from unrelated web pages. Do not proxy or expose it publicly.
-
-Runs stop after 10 seconds, around 1 MiB of captured output, or the interpreter's
-step/value/scope limits. Output is polled, so temporary files can exceed the
-capture threshold between checks. Value limits are not a hard process-memory
-ceiling. Stop terminates the interpreter's process group on Unix or Job Object
-on Windows. Detached processes or subprocesses that create independent groups
-can escape cleanup; this is another reason to run only trusted scripts.
-
-## Build and check (maintainers)
-
-Install a Rust toolchain supporting edition 2024, and build the `scripta` interpreter
-from the [Scripta repository](https://github.com/trafficinc/scripta).
-From the playground project directory:
+Or launch the companion directly:
 
 ```sh
-cargo build --locked --release
-SCR_TEST_BIN=/absolute/path/to/scripta cargo test --locked
-python3 -m unittest discover -s tests -p 'test_*.py'
-target/release/scr-playground --scr /absolute/path/to/scripta
-python3 tests/http_smoke.py --binary target/release/scr-playground --scr /absolute/path/to/scripta
+scr-playground --scr /path/to/scripta
 ```
 
-The execution tests require `SCR_TEST_BIN`; HTTP smoke additionally requires
-permission to bind loopback sockets. `--no-open` keeps tests from opening a tab.
+## Features and safety
+
+Edit and run `.scr` files with syntax highlighting, examples, Run/Stop controls,
+output and error tabs, and Ctrl/Cmd+Enter. Import scripts or download your work;
+all browser assets are bundled locally.
+
+Run only trusted scripts: they have your account's filesystem, network, and
+process permissions. The server listens on localhost; do not proxy or expose it
+publicly. Runs have time and output limits, but execution is not sandboxed.
+
+## Development
+
+See the [development guide](docs/development.md) for building from source,
+interpreter configuration, testing, execution limits, and release packaging.
 
 ### Scan for secrets
 
-Install Gitleaks with Homebrew, then run:
-
 ```sh
 brew install gitleaks
-./scripts/scan-secrets.sh              # Git history across all local refs
-./scripts/scan-secrets.sh working-tree # Current files, including untracked/ignored files
-./scripts/scan-secrets.sh staged       # Staged changes before committing
+./scripts/scan-secrets.sh
 ```
 
-The script works from any directory, redacts detected secrets, and returns a
-nonzero exit status if secrets are found or the scan fails. The working-tree
-scan also includes local build output; it does not scan Git history.
+Scans Git history; use `--help` for other modes.
 
-## Separate release packaging
+### Build downloadable releases
 
-First build and validate a normal Scripta interpreter archive with Scripta's
-existing release procedure. Then build this project natively for the same target
-and package it independently:
+Install Rust through rustup, Python 3.9+, and native C build tools, then clone both
+repositories into sibling folders:
 
 ```sh
-python3 scripts/package.py \
-  --binary target/release/scr-playground \
-  --runtime /path/to/scripta-0.1.1-aarch64-apple-darwin.tar.gz \
-  --target aarch64-apple-darwin \
-  --notices-dir /path/to/scripta/release-notices
+git clone https://github.com/trafficinc/scripta.git
+git clone https://github.com/trafficinc/scripta-playground.git
+cd scripta-playground
+python3 scripts/build-standalone.py
+./dist/standalone-aarch64-apple-darwin/scr-playground
 ```
 
-Python is used only by maintainers for packaging and smoke tests. Packaging checks
-the interpreter's inventory and hashes, preserves its complete notices/docs,
-collects this app's dependency licenses, and writes a separate archive and SHA-256
-sidecar under `dist/`. `--notices-dir` supplies reviewed upstream license
-supplements when a locked crate omits them; provenance and hashes are checked.
-Target dependencies must be available in Cargo's local cache before packaging.
-The normal interpreter release process never includes this sibling project.
+The build script detects your native target; the path above is for Apple Silicon
+macOS 15+. It prints the executable path for your platform. Use
+`--scripta-source /path/to/scripta` for another source location. Only the Apple
+Silicon macOS build has been tested so far.
 
-Publish this project in its own repository and publish its downloads separately.
-No remote repository or public release is created by the local build scripts.
+For automated builds, open **Actions → Standalone builds and releases → Run
+workflow**. Enter a version such as `0.1.0` and choose **Build only**,
+**Prerelease**, or **Release** from the dropdown. Leave the Scripta ref as `main`
+or select a tag/commit. The workflow must first be pushed to the default branch.
+
+All four native builds and tests must pass before downloads are assembled or
+published. Build only saves artifacts without creating a tag or release. See
+[manual workflow details](docs/development.md#manual-github-actions-builds)
+for versioning, downloads, and release behavior.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). Bundled interpreter
-and dependency notices are included in standalone release archives.
+[MIT](LICENSE). Standalone archives include bundled dependency notices.

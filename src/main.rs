@@ -5,7 +5,7 @@ use std::{
     env, fs,
     io::{self, BufReader, Read, Write},
     net::{TcpListener, TcpStream},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
         Arc, Mutex,
@@ -36,22 +36,113 @@ fn main() {
     }
 }
 
-fn interpreter_path(explicit: Option<PathBuf>) -> Result<PathBuf> {
+struct Interpreter {
+    path: PathBuf,
+    // Keep the extracted binary alive through server and child-process shutdown.
+    _directory: Option<tempfile::TempDir>,
+}
+
+fn version_number(output: &[u8]) -> Option<&str> {
+    let line = std::str::from_utf8(output).ok()?.lines().next()?;
+    let number = line
+        .strip_prefix("scripta ")
+        .or_else(|| line.strip_prefix("scr "))?;
+    let mut parts = number.split('.');
+    parts.next()?.parse::<u64>().ok()?;
+    parts.next()?.parse::<u64>().ok()?;
+    parts.next()?;
+    Some(number)
+}
+
+fn validate_interpreter(path: &Path) -> Result<()> {
+    let output = Command::new(path)
+        .arg("version")
+        .stdin(Stdio::null())
+        .output()?;
+    let version = version_number(&output.stdout)
+        .filter(|_| output.status.success())
+        .ok_or("selected executable did not identify itself as Scripta")?;
+    #[cfg(feature = "bundled-interpreter")]
+    if version
+        .split('.')
+        .take(2)
+        .ne(env!("SCR_BUNDLED_VERSION").split('.').take(2))
+    {
+        return Err(format!(
+            "Scripta {version} is incompatible with bundled {} (major/minor must match)",
+            env!("SCR_BUNDLED_VERSION")
+        )
+        .into());
+    }
+    let _ = version;
+    Ok(())
+}
+
+fn select_interpreter(
+    explicit: Option<PathBuf>,
+    candidates: impl IntoIterator<Item = PathBuf>,
+) -> Result<Interpreter> {
+    if let Some(path) = explicit {
+        let path = fs::canonicalize(path)?;
+        validate_interpreter(&path)?;
+        return Ok(Interpreter {
+            path,
+            _directory: None,
+        });
+    }
+    for candidate in candidates {
+        if candidate.is_file() && validate_interpreter(&candidate).is_ok() {
+            return Ok(Interpreter {
+                path: fs::canonicalize(candidate)?,
+                _directory: None,
+            });
+        }
+    }
+    #[cfg(feature = "bundled-interpreter")]
+    {
+        let directory = tempfile::Builder::new()
+            .prefix("scripta-playground-")
+            .tempdir()?;
+        let path = directory
+            .path()
+            .join(format!("scripta{}", env::consts::EXE_SUFFIX));
+        fs::write(
+            &path,
+            include_bytes!(concat!(env!("OUT_DIR"), "/scripta.bin")),
+        )?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
+        }
+        validate_interpreter(&path)?;
+        Ok(Interpreter {
+            path,
+            _directory: Some(directory),
+        })
+    }
+    #[cfg(not(feature = "bundled-interpreter"))]
+    Err("Scripta interpreter not found. Use a standalone build, the complete playground download, or pass --scr /path/to/scripta.".into())
+}
+
+fn interpreter_path(explicit: Option<PathBuf>) -> Result<Interpreter> {
     let names = ["scripta", "scr"].map(|name| format!("{name}{}", env::consts::EXE_SUFFIX));
     let executable = env::current_exe()?;
     let directory = executable
         .parent()
         .ok_or("cannot locate application directory")?;
-    let candidate = explicit.or_else(|| env::var_os("SCR_BIN").map(PathBuf::from))
-        .or_else(|| {
-            [directory.join("runtime"), directory.to_path_buf()]
-                .into_iter().flat_map(|dir| names.iter().map(move |name| dir.join(name)))
-                .find(|p| p.is_file())
-        }).or_else(|| {
-            env::var_os("PATH").and_then(|path| env::split_paths(&path)
-                .flat_map(|dir| names.iter().map(move |name| dir.join(name))).find(|p| p.is_file()))
-        }).ok_or("Scripta interpreter not found. Use the complete playground download, or pass --scr /path/to/scr.")?;
-    Ok(fs::canonicalize(candidate)?)
+    let mut candidates: Vec<PathBuf> = env::var_os("SCR_BIN")
+        .map(PathBuf::from)
+        .into_iter()
+        .collect();
+    let mut directories = vec![directory.join("runtime"), directory.to_path_buf()];
+    if let Some(path) = env::var_os("PATH") {
+        directories.extend(env::split_paths(&path));
+    }
+    for dir in directories {
+        candidates.extend(names.iter().map(|name| dir.join(name)));
+    }
+    select_interpreter(explicit, candidates)
 }
 
 fn start() -> Result<()> {
@@ -65,22 +156,37 @@ fn start() -> Result<()> {
             ));
         } else if arg == "--no-open" {
             open = false;
+        } else if arg == "--version" || arg == "-V" {
+            println!("Scripta Playground {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
         } else if arg == "--help" || arg == "-h" {
             println!(
-                "Scripta Playground\nUsage: scr-playground [--scr /path/to/scr] [--no-open]\nRuns locally at a random loopback port. Only run scripts you trust.\nClose with the Quit button or Ctrl+C."
+                "Scripta Playground\nUsage: scr-playground [--scr /path/to/scripta] [--no-open] [--licenses] [--version]\nRuns locally at a random loopback port. Only run scripts you trust.\nClose with the Quit button or Ctrl+C."
             );
+            return Ok(());
+        } else if arg == "--licenses" {
+            #[cfg(feature = "bundled-interpreter")]
+            print!(
+                "{}",
+                include_str!(concat!(env!("OUT_DIR"), "/licenses.txt"))
+            );
+            #[cfg(not(feature = "bundled-interpreter"))]
+            print!("{}", include_str!("../LICENSE"));
             return Ok(());
         } else {
             return Err(format!("unknown argument: {}", arg.to_string_lossy()).into());
         }
     }
     let interpreter = interpreter_path(explicit)?;
-    let version = Command::new(&interpreter).arg("version").output()?;
-    if !version.status.success()
-        || !(version.stdout.starts_with(b"scripta ") || version.stdout.starts_with(b"scr "))
-    {
-        return Err("selected executable did not identify itself as Scripta".into());
-    }
+    println!(
+        "Interpreter: {} ({})",
+        interpreter.path.display(),
+        if interpreter._directory.is_some() {
+            "bundled"
+        } else {
+            "installed"
+        }
+    );
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
     listener.set_nonblocking(true)?;
     let host = listener.local_addr()?.to_string();
@@ -88,7 +194,7 @@ fn start() -> Result<()> {
     getrandom::fill(&mut random).map_err(|e| format!("cannot generate session token: {e}"))?;
     let token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
     let state = Arc::new(State {
-        interpreter,
+        interpreter: interpreter.path.clone(),
         host,
         token,
         running: Mutex::new(()),
@@ -576,6 +682,50 @@ mod tests {
             shutdown: AtomicBool::new(false),
             connections: AtomicUsize::new(0),
         }
+    }
+
+    #[test]
+    fn installed_interpreter_is_preferred_and_invalid_override_is_an_error() {
+        let path = PathBuf::from(env::var_os("SCR_TEST_BIN").expect("Set SCR_TEST_BIN"));
+        let selected = select_interpreter(None, [path.clone()]).unwrap();
+        assert_eq!(selected.path, fs::canonicalize(path).unwrap());
+        assert!(selected._directory.is_none());
+        let directory = tempfile::tempdir().unwrap();
+        assert!(select_interpreter(Some(directory.path().join("missing")), []).is_err());
+    }
+
+    #[cfg(feature = "bundled-interpreter")]
+    #[test]
+    fn bundled_interpreter_executes_and_is_removed_after_use() {
+        let directory = tempfile::tempdir().unwrap();
+        let invalid = directory.path().join("invalid-scripta");
+        fs::write(&invalid, b"not an executable").unwrap();
+        let selected = select_interpreter(None, [invalid]).unwrap();
+        assert!(selected._directory.is_some());
+        let path = selected.path.clone();
+        let source = directory.path().join("test.scripta");
+        fs::write(&source, "echo \"42\";").unwrap();
+        let output = Command::new(&path).arg("run").arg(source).output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(output.stdout, b"42");
+        drop(selected);
+        assert!(!path.exists(), "extracted interpreter must be cleaned up");
+    }
+
+    #[cfg(all(unix, feature = "bundled-interpreter"))]
+    #[test]
+    fn incompatible_installed_interpreter_falls_back_to_bundle() {
+        use std::os::unix::fs::PermissionsExt;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("scripta");
+        fs::write(&path, "#!/bin/sh\necho 'scripta 99999.0.0'\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
+        let selected = select_interpreter(None, [path]).unwrap();
+        assert!(selected._directory.is_some());
     }
     fn run(source: &str, state: &State) -> Value {
         execute(

@@ -8,6 +8,9 @@ license = "MIT"
 name = "scr-playground"
 path = "src/main.rs"
 
+[features]
+bundled-interpreter = []
+
 [dependencies]
 httparse = "1.10"
 serde_json = "1.0"

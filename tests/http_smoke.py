@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--scr", type=Path, help="Interpreter override; omit to test runtime discovery")
+    parser.add_argument("--expect-interpreter", choices=("bundled", "installed"))
     args = parser.parse_args()
     command = [str(args.binary.resolve()), "--no-open"]
     if args.scr:
@@ -33,13 +34,18 @@ def main():
 
         threading.Thread(target=read_lines, daemon=True).start()
         deadline = time.monotonic() + 10
+        interpreter_line = ""
         while True:
             line = lines.get(timeout=max(.1, deadline - time.monotonic()))
             if line is None:
                 raise RuntimeError("Playground did not start: " + process.stderr.read())
+            if line.startswith("Interpreter:"):
+                interpreter_line = line
             if line.startswith("http://"):
                 address = urlsplit(line)
                 break
+        if args.expect_interpreter:
+            assert interpreter_line.endswith(f"({args.expect_interpreter})"), interpreter_line
 
         def request(path, body=None, override=None):
             connection = http.client.HTTPConnection(address.hostname, address.port, timeout=20)

@@ -68,13 +68,28 @@ def read_runtime(path, target):
     return {"runtime/" + name[len(prefix):]: data for name, data in files.items()}
 
 
-def dependency_notices(target, supplements):
+def dependency_notices(target, supplements, root=ROOT, package_name="scripta-playground"):
     metadata = json.loads(subprocess.check_output([
         "cargo", "metadata", "--locked", "--offline", "--format-version", "1", "--filter-platform", target
-    ], cwd=ROOT))
+    ], cwd=root))
+    # Only follow production/build dependencies of the binary being distributed.
+    # Cargo metadata also contains dev dependencies and unrelated workspace tools.
+    nodes = {node["id"]: node for node in metadata["resolve"]["nodes"]}
+    pending = [package["id"] for package in metadata["packages"]
+               if package["name"] == package_name and package["id"] in metadata["workspace_members"]]
+    if len(pending) != 1:
+        raise ValueError(f"expected one workspace package named {package_name}")
+    included = set()
+    while pending:
+        identity = pending.pop()
+        if identity in included:
+            continue
+        included.add(identity)
+        pending.extend(dependency["pkg"] for dependency in nodes[identity]["deps"]
+                       if any(kind["kind"] != "dev" for kind in dependency["dep_kinds"]))
     files = {}
     for package in metadata["packages"]:
-        if package["name"] == "scripta-playground":
+        if package["id"] not in included or package["id"] in metadata["workspace_members"]:
             continue
         directory = Path(package["manifest_path"]).parent
         prefix = f"third-party/{package['name']}-{package['version']}/"

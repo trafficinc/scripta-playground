@@ -1,0 +1,162 @@
+name: Standalone builds and releases
+run-name: ${{ inputs.release_option }} ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Playground version (for example 0.1.0 or 0.2.0-rc.1)
+        required: true
+        type: string
+      release_option:
+        description: What to do after all native builds and tests pass
+        required: true
+        default: Build only
+        type: choice
+        options:
+          - Build only
+          - Prerelease
+          - Release
+      scripta_ref:
+        description: Scripta branch, tag, or commit (resolved once and pinned for all builds)
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: standalone-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  BUILD_VERSION: ${{ inputs.version }}
+  BUILD_RELEASE_OPTION: ${{ inputs.release_option }}
+
+jobs:
+  prepare:
+    name: Validate version and pin sources
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      scripta_sha: ${{ steps.prepare.outputs.scripta_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: playground
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: trafficinc/scripta
+          ref: ${{ inputs.scripta_ref }}
+          path: scripta
+          persist-credentials: false
+      - name: Validate inputs and resolve interpreter commit
+        id: prepare
+        working-directory: playground
+        run: python3 scripts/workflow_build.py prepare --scripta-source ../scripta
+
+  build:
+    name: ${{ matrix.target }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            target: aarch64-apple-darwin
+            python: python3
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            python: python3
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            python: python3
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            python: python
+    env:
+      BUILD_SCRIPTA_SHA: ${{ needs.prepare.outputs.scripta_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: playground
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: trafficinc/scripta
+          ref: ${{ needs.prepare.outputs.scripta_sha }}
+          path: scripta
+          persist-credentials: false
+      - name: Build, test, and package standalone executable
+        working-directory: playground
+        shell: bash
+        run: ${{ matrix.python }} scripts/workflow_build.py native --target "${{ matrix.target }}" --scripta-source ../scripta
+      - name: Save validated platform download
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: standalone-${{ matrix.target }}
+          path: playground/dist/workflow/${{ matrix.target }}/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  assemble:
+    name: Assemble validated downloads
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    outputs:
+      artifact_id: ${{ steps.artifact.outputs.artifact-id }}
+    env:
+      BUILD_SCRIPTA_SHA: ${{ needs.prepare.outputs.scripta_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: standalone-*
+          path: dist/workflow-inputs
+      - name: Check provenance and checksums for every platform
+        run: python3 scripts/workflow_build.py assemble --inputs dist/workflow-inputs --output dist/release-assets
+      - name: Save complete build
+        id: artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: scripta-playground-${{ needs.prepare.outputs.version }}
+          path: dist/release-assets/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Show download link
+        env:
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        run: python3 scripts/workflow_build.py summary
+
+  publish:
+    name: Publish GitHub release
+    if: inputs.release_option != 'Build only'
+    needs: [prepare, assemble]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.assemble.outputs.artifact_id }}
+          path: dist/release-assets
+          merge-multiple: true
+      - name: Publish saved assets without rebuilding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_SCRIPTA_SHA: ${{ needs.prepare.outputs.scripta_sha }}
+        run: python3 scripts/workflow_build.py publish --output dist/release-assets
