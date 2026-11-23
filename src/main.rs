@@ -486,12 +486,12 @@ fn execute(body: &[u8], state: &State) -> Result<Value> {
         return Err("source exceeds 256 KiB".into());
     }
     let directory = tempfile::tempdir()?;
-    fs::write(directory.path().join("playground.scr"), source)?;
+    fs::write(directory.path().join("playground.scripta"), source)?;
     let stdout_path = directory.path().join("stdout");
     let stderr_path = directory.path().join("stderr");
     let mut command = Command::new(&state.interpreter);
     command
-        .args(["run", "playground.scr"])
+        .args(["run", "playground.scripta"])
         .current_dir(directory.path())
         .stdin(Stdio::null())
         .stdout(fs::File::create(&stdout_path)?)
@@ -753,19 +753,19 @@ mod tests {
     #[test]
     fn interpreter_returns_output_errors_and_exit_codes() {
         let state = test_state();
-        let result = run("<?scr echo \"hello\\n\"; exit(7);", &state);
+        let result = run("echo \"hello\\n\"; exit(7);", &state);
         assert_eq!(result["stdout"], "hello\n");
         assert_eq!(result["exitCode"], 7);
-        let result = run("<?scr echo ;", &state);
+        let result = run("echo ;", &state);
         assert_eq!(result["exitCode"], 1);
         assert!(
             result["stderr"]
                 .as_str()
                 .unwrap()
-                .contains("playground.scr")
+                .contains("playground.scripta")
         );
         let result = run(
-            "<?scr File::write(\"local.txt\",\"ok\"); echo File::read(\"local.txt\");",
+            "File::write(\"local.txt\",\"ok\"); echo File::read(\"local.txt\");",
             &state,
         );
         assert_eq!(result["stdout"], "ok");
@@ -780,13 +780,13 @@ mod tests {
                 thread::sleep(Duration::from_millis(100));
                 state.cancel.store(true, Ordering::SeqCst);
             });
-            let result = run("<?scr sleep(60000);", &state);
+            let result = run("sleep(60000);", &state);
             assert_eq!(result["reason"], "Stopped");
             assert!(result["elapsedMs"].as_u64().unwrap() < 3000);
         });
         state.cancel.store(false, Ordering::SeqCst);
         let result = run(
-            &format!("<?scr while (true) {{ echo \"{}\"; }}", "x".repeat(1000)),
+            &format!("while (true) {{ echo \"{}\"; }}", "x".repeat(1000)),
             &state,
         );
         assert_eq!(result["reason"], "Output exceeded 1 MiB");
@@ -795,7 +795,7 @@ mod tests {
 
     #[test]
     fn wall_clock_limit_stops_blocking_script() {
-        let result = run("<?scr sleep(60000);", &test_state());
+        let result = run("sleep(60000);", &test_state());
         assert_eq!(result["reason"], "Execution exceeded 10 seconds");
     }
 }

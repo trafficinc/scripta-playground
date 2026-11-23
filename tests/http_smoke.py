@@ -92,24 +92,24 @@ def main():
             assert delayed_response.getheader("Content-Type").startswith("text/css")
             assert delayed_response.read()
         assert request("/", override={"Host": "attacker.example"})[0] == 403
-        assert request("/run", {"source": "<?scr echo 1;"}, {"Origin": "https://attacker.example"})[0] == 403
-        assert request("/run", {"source": "<?scr echo 1;"}, {"X-Playground-Token": "wrong"})[0] == 403
-        status, data = request("/run", {"source": '<?scr echo "hello\\n"; exit(7);'})
+        assert request("/run", {"source": "echo 1;"}, {"Origin": "https://attacker.example"})[0] == 403
+        assert request("/run", {"source": "echo 1;"}, {"X-Playground-Token": "wrong"})[0] == 403
+        status, data = request("/run", {"source": 'echo "hello\\n"; exit(7);'})
         result = json.loads(data)
         assert status == 200 and result["stdout"] == "hello\n" and result["exitCode"] == 7
-        status, data = request("/run", {"source": "<?scr echo ;"})
+        status, data = request("/run", {"source": "echo ;"})
         assert status == 200 and json.loads(data)["exitCode"] == 1
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(request, "/run", {"source": "<?scr sleep(60000);"})
+            future = executor.submit(request, "/run", {"source": "sleep(60000);"})
             # Wait until a second run is rejected, proving execution has acquired the lock.
             deadline = time.monotonic() + 3
-            while request("/run", {"source": "<?scr"})[0] != 409:
+            while request("/run", {"source": ""})[0] != 409:
                 assert time.monotonic() < deadline
                 # The probe can acquire the lock before the worker request.
                 # Retry that request if it lost the race to the probe.
                 if future.done():
                     assert future.result()[0] == 409
-                    future = executor.submit(request, "/run", {"source": "<?scr sleep(60000);"})
+                    future = executor.submit(request, "/run", {"source": "sleep(60000);"})
                 time.sleep(.01)
             assert request("/stop", {})[0] == 200
             assert json.loads(future.result()[1])["reason"] == "Stopped"

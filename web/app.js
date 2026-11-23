@@ -1,10 +1,10 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const examples = {
-  hello: '<?scr\n\n$name = "Scripta";\necho "Hello, " . $name . "!\\n";\n',
-  loops: '<?scr\n\n$total = 0;\nfor ($i = 1; $i <= 5; $i += 1) {\n    $total += $i;\n    echo str($i) . "\\n";\n}\necho "Total: " . str($total) . "\\n";\n',
-  arrays: '<?scr\n\n$items = ["apple", "banana", "orange"];\n$items[] = "pear";\n\nforeach ($items as $item) {\n    echo $item . "\\n";\n}\necho Json::encode($items) . "\\n";\n',
-  functions: '<?scr\n\nfunction greet($name: string): string {\n    return "Hello, " . $name . "!";\n}\n\necho greet("world") . "\\n";\n'
+  hello: '$name = "Scripta";\necho "Hello, " . $name . "!\\n";\n',
+  loops: '$total = 0;\nfor ($i = 1; $i <= 5; $i += 1) {\n    $total += $i;\n    echo str($i) . "\\n";\n}\necho "Total: " . str($total) . "\\n";\n',
+  arrays: '$items = ["apple", "banana", "orange"];\n$items[] = "pear";\n\nforeach ($items as $item) {\n    echo $item . "\\n";\n}\necho Json::encode($items) . "\\n";\n',
+  functions: 'function greet($name: string): string {\n    return "Hello, " . $name . "!";\n}\n\necho greet("world") . "\\n";\n'
 };
 const descriptions = {
   hello: 'Start with a greeting, then take it somewhere new.',
@@ -32,8 +32,8 @@ document.querySelectorAll('.modifier').forEach(element => { element.textContent 
 function paintCode(source) {
   if (source === lastPainted) return;
   lastPainted = source;
-  const pattern = /(<\?scr)|("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*')|(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|(\$[A-Za-z_]\w*)|\b(function|return|echo|for|foreach|as|if|else|elseif|while|do|break|continue|true|false|null|try|catch|finally|throw|require|require_once|int|float|string|bool|void|list|map|callable)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Z][A-Za-z0-9_]*)(?=::)|\b([A-Za-z_]\w*)(?=\s*\()/g;
-  const classes = ['tag', 'string', 'comment', 'variable', 'keyword', 'number', 'type', 'function'];
+  const pattern = /("(?:\\[\s\S]|[^"\\])*"|'(?:\\[\s\S]|[^'\\])*')|(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?(?:\*\/|$))|(\$[A-Za-z_]\w*)|\b(function|return|echo|for|foreach|as|if|else|elseif|while|do|break|continue|true|false|null|try|catch|finally|throw|require|require_once|int|float|string|bool|void|list|map|callable)\b|\b(\d+(?:\.\d+)?)\b|\b([A-Z][A-Za-z0-9_]*)(?=::)|\b([A-Za-z_]\w*)(?=\s*\()/g;
+  const classes = ['string', 'comment', 'variable', 'keyword', 'number', 'type', 'function'];
   const fragment = document.createDocumentFragment();
   let offset = 0;
   for (const match of source.matchAll(pattern)) {
@@ -237,7 +237,7 @@ $('font-size').addEventListener('change', () => {
 });
 $('save').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([$('editor').value], {type:'text/plain;charset=utf-8'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'playground.scr'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = 'playground.scripta'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   setStatus('Script downloaded');
 });
@@ -272,7 +272,7 @@ document.addEventListener('keydown', event => {
 });
 let saved;
 try { saved = localStorage.getItem('scripta-source'); } catch (_) {}
-replaceSource(saved ?? examples.hello);
+replaceSource(saved == null ? examples.hello : saved.replace(/^<\?(?:scr|src)\b\s*/, ''));
 refreshConsole();
 toggleRun(false);
 if (!token) setStatus('Open the full URL from the launcher to connect.', 'idle');

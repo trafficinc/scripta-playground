@@ -72,7 +72,7 @@ scr-playground --scr /path/to/scripta
 
 ## Features and safety
 
-Edit and run `.scr` files with syntax highlighting, examples, Run/Stop controls,
+Edit and run `.scripta` files with syntax highlighting, examples, Run/Stop controls,
 output and error tabs, and Ctrl/Cmd+Enter. Import scripts or download your work;
 all browser assets are bundled locally.
 

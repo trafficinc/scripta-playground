@@ -93,18 +93,19 @@ h1 { font-size: clamp(21px, 2.2vw, 29px); font-weight: 570; letter-spacing: -1.0
 .run-shortcut { border-left: 1px solid #ffffff35; margin-left: 8px; padding-left: 11px; font-size: 10px; color: #ffdfcb; font-weight: 400; }
 .mobile-examples, .mobile-open { display: none; }
 .workspace { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); border: 1px solid #d4d9cb; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 14px #2f3f2206, 0 22px 50px -35px #3e502e33; flex: 1 1 0; min-height: 340px; }
-.editor-panel { color-scheme: dark; background: #1d2228; color: #e0e2e3; display: flex; flex-direction: column; min-width: 0; }
+.editor-panel { color-scheme: dark; background: #1d2228; color: #e0e2e3; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .editor-head { display: flex; align-items: center; justify-content: space-between; height: 47px; padding-right: 12px; background: #242a31; border-bottom: 1px solid #30363d; flex: 0 0 auto; }
 .file-tab { display: flex; align-items: center; gap: 9px; align-self: stretch; padding: 0 19px; background: #1d2228; border-right: 1px solid #30363d; position: relative; }
 .file-tab::before { content: ""; height: 2px; position: absolute; top: 0; left: 0; right: 0; background: #db805c; }
 .file-tab .icon { width: 14px; height: 14px; color: #c3946e; }
+.bison-character { width: 32px; height: 26px; flex: 0 0 auto; }
 h2 { font-size: 11px; font-weight: 500; margin: 0; }
 .file-dot { height: 5px; width: 5px; background: #69705c; border-radius: 50%; margin-left: 14px; }
 .font-control { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #88918f; }
 .font-control select { border: 0; background: transparent; color: #b7bfb8; font: 10px var(--mono); padding: 4px 0; border-radius: 3px; }
 .editor-body { display: flex; flex: 1; min-height: 0; position: relative; }
-.gutter { width: 53px; flex: 0 0 auto; overflow: hidden; color: #5b646a; text-align: right; background: #1d2228; user-select: none; }
-.gutter pre { margin: 0; padding: 24px 14px 24px 0; font: var(--code-size)/var(--code-line) var(--mono); }
+.gutter { position: relative; width: 53px; flex: 0 0 auto; overflow: hidden; color: #5b646a; text-align: right; background: #1d2228; user-select: none; }
+.gutter pre { position: absolute; top: 0; left: 0; width: 100%; margin: 0; padding: 24px 14px 24px 0; font: var(--code-size)/var(--code-line) var(--mono); }
 .code-stage { position: relative; min-width: 0; flex: 1; overflow: hidden; }
 #highlight, #editor { padding: 24px 22px 60px 0; margin: 0; border: 0; tab-size: 4; font: var(--code-size)/var(--code-line) var(--mono); font-variant-ligatures: none; letter-spacing: 0; text-align: left; white-space: pre; }
 #highlight { position: absolute; top: 0; left: 0; width: max-content; min-width: 100%; color: #d7dce0; pointer-events: none; }
@@ -112,7 +113,6 @@ h2 { font-size: 11px; font-weight: 500; margin: 0; }
 #editor::selection { background: #7186a14d; color: transparent; }
 #editor:focus-visible { box-shadow: inset 0 0 0 1px #df8b5c33; }
 .active-line { position: absolute; left: 0; right: 0; height: var(--code-line); top: 24px; background: #ffffff03; pointer-events: none; }
-.token-tag { color: #849d97; }
 .token-string { color: #bbca95; }
 .token-comment { color: #6e7e79; font-style: italic; }
 .token-variable { color: #d9b997; }
