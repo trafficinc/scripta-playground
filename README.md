@@ -6,6 +6,36 @@ A local browser playground for [Scripta](https://github.com/trafficinc/scripta),
 with a syntax-colored editor, examples, and a console. It is distributed
 separately from the interpreter and works offline.
 
+## Quick start from a Git clone
+
+Install Rust through rustup, Python 3.9+, and native C build tools (on macOS,
+run `xcode-select --install`). Clone both repositories into sibling folders,
+then build:
+
+```sh
+git clone https://github.com/trafficinc/scripta.git
+git clone https://github.com/trafficinc/scripta-playground.git
+cd scripta-playground
+python3 scripts/build-standalone.py
+```
+
+If you already cloned this repository, clone Scripta beside it with
+`git clone https://github.com/trafficinc/scripta.git ../scripta` from the
+playground folder, then run the build command above.
+
+The build prints the executable path for your platform. On Apple Silicon
+macOS 15+, launch it with:
+
+```sh
+./dist/standalone-aarch64-apple-darwin/scr-playground
+```
+
+It opens your browser automatically. Keep the terminal running while you use
+the playground; press Ctrl+C to stop it.
+Use `--scripta-source /path/to/scripta` when building with an interpreter source
+checkout in another location. Only the Apple Silicon macOS build has been
+tested so far.
+
 ## Download and launch
 
 For a standalone executable, run `scr-playground` (`scr-playground.exe` on
@@ -66,21 +96,8 @@ Scans Git history; use `--help` for other modes.
 
 ### Build downloadable releases
 
-Install Rust through rustup, Python 3.9+, and native C build tools, then clone both
-repositories into sibling folders:
-
-```sh
-git clone https://github.com/trafficinc/scripta.git
-git clone https://github.com/trafficinc/scripta-playground.git
-cd scripta-playground
-python3 scripts/build-standalone.py
-./dist/standalone-aarch64-apple-darwin/scr-playground
-```
-
-The build script detects your native target; the path above is for Apple Silicon
-macOS 15+. It prints the executable path for your platform. Use
-`--scripta-source /path/to/scripta` for another source location. Only the Apple
-Silicon macOS build has been tested so far.
+For local builds, follow [Quick start from a Git clone](#quick-start-from-a-git-clone)
+above. The build script detects your native target and bundles the interpreter.
 
 For automated builds, open **Actions → Standalone builds and releases → Run
 workflow**. Enter a version such as `0.1.0` and choose **Build only**,
