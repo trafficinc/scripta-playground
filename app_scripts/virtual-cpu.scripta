@@ -1,0 +1,244 @@
+// ============================================
+// SCRIPTA VIRTUAL CPU
+// Procedural programming demonstration
+// ============================================
+
+function createCPU() {
+    return [
+        "registers" => [
+            "A" => 0,
+            "B" => 0,
+            "C" => 0,
+            "D" => 0
+        ],
+        "memory" => [0, 0, 0, 0, 0, 0, 0, 0],
+        "pc" => 0,
+        "cycles" => 0,
+        "running" => true,
+        "zero" => false
+    ];
+}
+
+function executeInstruction($cpu, $instruction) {
+    $op = $instruction[0];
+
+    $registers = $cpu["registers"];
+    $memory = $cpu["memory"];
+
+    $cpu["cycles"] = $cpu["cycles"] + 1;
+    $cpu["pc"] = $cpu["pc"] + 1;
+
+    if ($op === "MOV") {
+        $registers[$instruction[1]] = $instruction[2];
+    }
+    else if ($op === "COPY") {
+        $registers[$instruction[1]] =
+            $registers[$instruction[2]];
+    }
+    else if ($op === "ADD") {
+        $target = $instruction[1];
+        $source = $instruction[2];
+
+        $registers[$target] =
+            $registers[$target] + $registers[$source];
+    }
+    else if ($op === "SUB") {
+        $target = $instruction[1];
+        $source = $instruction[2];
+
+        $registers[$target] =
+            $registers[$target] - $registers[$source];
+    }
+    else if ($op === "MUL") {
+        $target = $instruction[1];
+        $source = $instruction[2];
+
+        $registers[$target] =
+            $registers[$target] * $registers[$source];
+    }
+    else if ($op === "INC") {
+        $target = $instruction[1];
+        $registers[$target] = $registers[$target] + 1;
+    }
+    else if ($op === "DEC") {
+        $target = $instruction[1];
+        $registers[$target] = $registers[$target] - 1;
+    }
+    else if ($op === "CMP") {
+        $cpu["zero"] =
+            $registers[$instruction[1]] === $instruction[2];
+    }
+    else if ($op === "JMP") {
+        $cpu["pc"] = $instruction[1];
+    }
+    else if ($op === "JNZ") {
+        if (!$cpu["zero"]) {
+            $cpu["pc"] = $instruction[1];
+        }
+    }
+    else if ($op === "JZ") {
+        if ($cpu["zero"]) {
+            $cpu["pc"] = $instruction[1];
+        }
+    }
+    else if ($op === "STORE") {
+        $address = $instruction[1];
+        $memory[$address] = $registers[$instruction[2]];
+    }
+    else if ($op === "LOAD") {
+        $registers[$instruction[1]] =
+            $memory[$instruction[2]];
+    }
+    else if ($op === "PRINT") {
+        $reg = $instruction[1];
+        $value = $registers[$reg];
+
+        echo "CPU OUTPUT: {$reg} = {$value}\n";
+    }
+    else if ($op === "HALT") {
+        $cpu["running"] = false;
+    }
+    else {
+        echo "ERROR: Unknown opcode {$op}\n";
+        $cpu["running"] = false;
+    }
+
+    $cpu["registers"] = $registers;
+    $cpu["memory"] = $memory;
+
+    return $cpu;
+}
+
+function runProgram($program, $length: int, $maxCycles: int) {
+    $cpu = createCPU();
+
+    while ($cpu["running"]) {
+        $pc = $cpu["pc"];
+
+        if ($pc < 0 || $pc >= $length) {
+            echo "ERROR: Invalid program counter\n";
+            $cpu["running"] = false;
+            break;
+        }
+
+        if ($cpu["cycles"] >= $maxCycles) {
+            echo "ERROR: Cycle limit exceeded\n";
+            $cpu["running"] = false;
+            break;
+        }
+
+        $instruction = $program[$pc];
+        $cpu = executeInstruction($cpu, $instruction);
+    }
+
+    return $cpu;
+}
+
+function printRegisters($cpu) {
+    echo "\nREGISTER DUMP\n";
+    echo "------------------------\n";
+
+    $registers = $cpu["registers"];
+
+    foreach (["A", "B", "C", "D"] as $name) {
+        $value = $registers[$name];
+        echo "Register {$name}: {$value}\n";
+    }
+
+    echo "Program counter: {$cpu['pc']}\n";
+    echo "CPU cycles: {$cpu['cycles']}\n";
+}
+
+function printMemory($cpu) {
+    echo "\nMEMORY DUMP\n";
+    echo "------------------------\n";
+
+    $address = 0;
+
+    foreach ($cpu["memory"] as $value) {
+        echo "Address {$address}: {$value}\n";
+        $address = $address + 1;
+    }
+}
+
+function testResult($name: string, $actual: int, $expected: int) {
+    if ($actual === $expected) {
+        echo "[PASS] {$name}: {$actual}\n";
+        return 1;
+    }
+
+    echo "[FAIL] {$name}: expected {$expected}";
+    echo ", received {$actual}\n";
+
+    return 0;
+}
+
+// ============================================
+// VIRTUAL ASSEMBLY PROGRAM
+// ============================================
+
+$program = [
+    // Sum integers from 1 to 10
+    ["MOV", "A", 0],       // 0
+    ["MOV", "B", 10],      // 1
+    ["ADD", "A", "B"],     // 2
+    ["DEC", "B"],          // 3
+    ["CMP", "B", 0],       // 4
+    ["JNZ", 2],            // 5
+    ["STORE", 0, "A"],     // 6
+    ["PRINT", "A"],        // 7
+
+    // Calculate factorial of 5
+    ["MOV", "A", 1],       // 8
+    ["MOV", "B", 5],       // 9
+    ["MUL", "A", "B"],     // 10
+    ["DEC", "B"],          // 11
+    ["CMP", "B", 0],       // 12
+    ["JNZ", 10],           // 13
+    ["STORE", 1, "A"],     // 14
+    ["PRINT", "A"],        // 15
+
+    // Load previous results and combine
+    ["LOAD", "C", 0],      // 16
+    ["LOAD", "D", 1],      // 17
+    ["ADD", "C", "D"],     // 18
+    ["STORE", 2, "C"],     // 19
+    ["PRINT", "C"],        // 20
+    ["HALT"]              // 21
+];
+
+echo "========================================\n";
+echo "          SCRIPTA VIRTUAL CPU\n";
+echo "========================================\n";
+echo "Architecture: 4 general-purpose registers\n";
+echo "Memory: 8 cells\n";
+echo "Program size: 22 instructions\n";
+echo "Cycle limit: 1000\n\n";
+
+$cpu = runProgram($program, 22, 1000);
+
+printRegisters($cpu);
+printMemory($cpu);
+
+// ============================================
+// AUTOMATED VALIDATION
+// ============================================
+
+echo "\nAUTOMATED TESTS\n";
+echo "------------------------\n";
+
+$memory = $cpu["memory"];
+$passed = 0;
+
+$passed = $passed + testResult("Summation", $memory[0], 55);
+$passed = $passed + testResult("Factorial", $memory[1], 120);
+$passed = $passed + testResult("Combined", $memory[2], 175);
+$passed = $passed + testResult("CPU cycles", $cpu["cycles"], 74);
+
+echo "\nTests passed: {$passed}/4\n";
+
+if ($passed === 4) {
+    echo "ALL TESTS PASSED\n";
+} else {
+    echo "SOME TESTS FAILED\n";
+}

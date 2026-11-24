@@ -1,0 +1,330 @@
+
+ // ============================================
+ // SCRIPTA INVENTORY ENGINE
+ // Advanced language demonstration
+ // ============================================
+
+interface DiscountPolicy {
+    function calculate($total: int): int;
+}
+
+class StandardDiscount implements DiscountPolicy {
+    function calculate($total: int): int {
+        if ($total >= 500) {
+            return 50;
+        }
+        if ($total >= 200) {
+            return 20;
+        }
+        return 0;
+    }
+}
+
+class Product {
+    $sku: string;
+    $name: string;
+    $price: int;
+    $stock: int;
+    $sold = 0;
+
+    function __construct(
+        $sku: string,
+        $name: string,
+        $price: int,
+        $stock: int
+    ) {
+        $this->sku = $sku;
+        $this->name = $name;
+        $this->price = $price;
+        $this->stock = $stock;
+    }
+
+    function available($quantity: int): bool {
+        return $quantity > 0 && $quantity <= $this->stock;
+    }
+
+    function sell($quantity: int) {
+        $this->stock = $this->stock - $quantity;
+        $this->sold = $this->sold + $quantity;
+    }
+
+    function revenue(): int {
+        return $this->sold * $this->price;
+    }
+
+    function status(): string {
+        if ($this->stock === 0) {
+            return "OUT OF STOCK";
+        }
+        if ($this->stock <= 3) {
+            return "LOW STOCK";
+        }
+        return "AVAILABLE";
+    }
+}
+
+class Store {
+    $products = [];
+    $transactions = [];
+    $revenue = 0;
+    $discounts = 0;
+    $accepted = 0;
+    $rejected = 0;
+    $policy: DiscountPolicy;
+
+    function __construct($policy: DiscountPolicy) {
+        $this->policy = $policy;
+    }
+
+    function addProduct($product: Product) {
+        $this->products[] = $product;
+    }
+
+    function findProduct($sku: string) {
+        foreach ($this->products as $product) {
+            if ($product->sku === $sku) {
+                return $product;
+            }
+        }
+        return null;
+    }
+
+    function reject($customer: string, $reason: string) {
+        $this->rejected = $this->rejected + 1;
+
+        $this->transactions[] = [
+            "customer" => $customer,
+            "status" => "REJECTED",
+            "total" => 0,
+            "reason" => $reason
+        ];
+
+        echo "REJECTED: {$customer}\n";
+        echo "  Reason: {$reason}\n\n";
+    }
+
+    function processOrder($customer: string, $items) {
+        $subtotal = 0;
+        $pending = [];
+
+        // Validate the entire order before changing stock.
+        foreach ($items as $item) {
+            $sku = $item["sku"];
+            $quantity = $item["quantity"];
+            $product = $this->findProduct($sku);
+
+            if ($product === null) {
+                $this->reject(
+                    $customer,
+                    "Unknown product: {$sku}"
+                );
+                return;
+            }
+
+            // Account for repeated SKUs in an order.
+            $requested = $quantity;
+
+            foreach ($pending as $line) {
+                if ($line["product"]->sku === $sku) {
+                    $requested = $requested + $line["quantity"];
+                }
+            }
+
+            if ($quantity <= 0 || !$product->available($requested)) {
+                $this->reject(
+                    $customer,
+                    "Invalid quantity or insufficient stock: {$sku}"
+                );
+                return;
+            }
+
+            $lineTotal = $product->price * $quantity;
+            $subtotal = $subtotal + $lineTotal;
+
+            $pending[] = [
+                "product" => $product,
+                "quantity" => $quantity,
+                "total" => $lineTotal
+            ];
+        }
+
+        if ($subtotal === 0) {
+            $this->reject($customer, "Empty order");
+            return;
+        }
+
+        $discount = $this->policy->calculate($subtotal);
+        $total = $subtotal - $discount;
+
+        // Commit the validated order.
+        echo "ORDER: {$customer}\n";
+
+        foreach ($pending as $line) {
+            $product = $line["product"];
+            $quantity = $line["quantity"];
+            $product->sell($quantity);
+
+            echo "  {$product->name} x {$quantity}";
+            echo " = USD {$line['total']}\n";
+        }
+
+        $this->revenue = $this->revenue + $total;
+        $this->discounts = $this->discounts + $discount;
+        $this->accepted = $this->accepted + 1;
+
+        $this->transactions[] = [
+            "customer" => $customer,
+            "status" => "ACCEPTED",
+            "total" => $total,
+            "reason" => ""
+        ];
+
+        echo "  Subtotal: USD {$subtotal}\n";
+        echo "  Discount: USD {$discount}\n";
+        echo "  Total:    USD {$total}\n\n";
+    }
+
+    function report() {
+        echo "========================================\n";
+        echo "           INVENTORY REPORT\n";
+        echo "========================================\n\n";
+
+        $inventoryValue = 0;
+        $unitsSold = 0;
+        $bestSeller = null;
+        $highestRevenue = -1;
+
+        foreach ($this->products as $product) {
+            $value = $product->price * $product->stock;
+            $inventoryValue = $inventoryValue + $value;
+            $unitsSold = $unitsSold + $product->sold;
+            $status = $product->status();
+            $sales = $product->revenue();
+
+            if ($sales > $highestRevenue) {
+                $highestRevenue = $sales;
+                $bestSeller = $product;
+            }
+
+            echo "{$product->sku} - {$product->name}\n";
+            echo "  Remaining: {$product->stock}\n";
+            echo "  Sold:      {$product->sold}\n";
+            echo "  Sales:     USD {$sales}\n";
+            echo "  Status:    {$status}\n\n";
+        }
+
+        echo "========================================\n";
+        echo "              SALES SUMMARY\n";
+        echo "========================================\n";
+
+        echo "Accepted orders: {$this->accepted}\n";
+        echo "Rejected orders: {$this->rejected}\n";
+        echo "Units sold:      {$unitsSold}\n";
+        echo "Net revenue:     USD {$this->revenue}\n";
+        echo "Total discounts: USD {$this->discounts}\n";
+        echo "Inventory value: USD {$inventoryValue}\n";
+
+        if ($bestSeller !== null) {
+            echo "Top revenue product: {$bestSeller->name}\n";
+        }
+
+        echo "\n";
+    }
+
+    function transactionReport() {
+        echo "========================================\n";
+        echo "           TRANSACTION HISTORY\n";
+        echo "========================================\n";
+
+        foreach ($this->transactions as $transaction) {
+            $customer = $transaction["customer"];
+            $status = $transaction["status"];
+            $total = $transaction["total"];
+
+            echo "{$customer} | {$status} | USD {$total}\n";
+        }
+    }
+}
+
+// ============================================
+// INITIALIZE STORE
+// ============================================
+
+$store = new Store(new StandardDiscount());
+
+$store->addProduct(new Product("P001", "Keyboard", 80, 15));
+$store->addProduct(new Product("P002", "Mouse", 40, 20));
+$store->addProduct(new Product("P003", "Monitor", 250, 8));
+$store->addProduct(new Product("P004", "SSD", 120, 12));
+$store->addProduct(new Product("P005", "USB Hub", 35, 5));
+
+echo "========================================\n";
+echo "       SCRIPTA INVENTORY ENGINE\n";
+echo "========================================\n\n";
+
+// ============================================
+// CUSTOMER ORDERS
+// ============================================
+
+$orders = [
+    [
+        "customer" => "Alice",
+        "items" => [
+            ["sku" => "P001", "quantity" => 2],
+            ["sku" => "P002", "quantity" => 1]
+        ]
+    ],
+    [
+        "customer" => "Bob",
+        "items" => [
+            ["sku" => "P003", "quantity" => 2],
+            ["sku" => "P004", "quantity" => 1]
+        ]
+    ],
+    [
+        "customer" => "Charlie",
+        "items" => [
+            ["sku" => "P005", "quantity" => 10]
+        ]
+    ],
+    [
+        "customer" => "Diana",
+        "items" => [
+            ["sku" => "P004", "quantity" => 3],
+            ["sku" => "P005", "quantity" => 2]
+        ]
+    ],
+    [
+        "customer" => "Ethan",
+        "items" => [
+            ["sku" => "P999", "quantity" => 1]
+        ]
+    ],
+    [
+        "customer" => "Frank",
+        "items" => [
+            ["sku" => "P003", "quantity" => 6]
+        ]
+    ],
+    [
+        "customer" => "Grace",
+        "items" => [
+            ["sku" => "P001", "quantity" => 1],
+            ["sku" => "P002", "quantity" => 5]
+        ]
+    ]
+];
+
+foreach ($orders as $order) {
+    $store->processOrder(
+        $order["customer"],
+        $order["items"]
+    );
+}
+
+// ============================================
+// GENERATE REPORTS
+// ============================================
+
+$store->report();
+$store->transactionReport();

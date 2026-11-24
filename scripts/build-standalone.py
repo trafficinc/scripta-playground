@@ -46,7 +46,18 @@ def build(source):
                    cwd=source, env=environment, check=True)
     destination = ROOT / "dist" / f"standalone-{target}" / ("scr-playground" + suffix)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(ROOT / "target" / target / "release" / ("scr-playground" + suffix), destination)
+    staged = destination.with_name(destination.name + ".staged")
+    shutil.copy2(ROOT / "target" / target / "release" / ("scr-playground" + suffix), staged)
+    # Replace the inode so macOS does not reuse a cached signature after a rebuild.
+    os.replace(staged, destination)
+    scripts_directory = destination.parent / "app_scripts"
+    scripts_directory.mkdir(exist_ok=True)
+    copied_scripts = 0
+    for script in (ROOT / "app_scripts").glob("*.scripta"):
+        if script.is_file() and not script.is_symlink():
+            shutil.copy2(script, scripts_directory / script.name)
+            copied_scripts += 1
+    print(f"Copied {copied_scripts} script(s) to {scripts_directory}")
     destination.with_suffix(destination.suffix + ".sha256").write_text(
         f"{hashlib.sha256(destination.read_bytes()).hexdigest()}  {destination.name}\n", encoding="utf-8")
     print(f"\nStandalone executable: {destination}\nRun: {destination}")

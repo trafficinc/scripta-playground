@@ -76,6 +76,17 @@ Edit and run `.scripta` files with syntax highlighting, examples, Run/Stop contr
 output and error tabs, and Ctrl/Cmd+Enter. Import scripts or download your work;
 all browser assets are bundled locally.
 
+To add your own examples, create an `app_scripts/` folder beside the
+`scr-playground` executable and drop `.scripta` files into it. Refresh the page
+to see them under **Your scripts** (or in the example menu on mobile). Selecting
+a script opens it in the editor; use **Run script** to execute it. Files must be
+UTF-8, no larger than 256 KiB, and directly inside the folder. **Save script**
+downloads your edits; it does not overwrite the original file.
+
+Standalone builds create this folder automatically and copy `.scripta` files
+from the repository's `app_scripts/` into it, so you can include your own
+advanced examples when building.
+
 Run only trusted scripts: they have your account's filesystem, network, and
 process permissions. The server listens on localhost; do not proxy or expose it
 publicly. Runs have time and output limits, but execution is not sandboxed.

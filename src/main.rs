@@ -21,6 +21,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>
 
 struct State {
     interpreter: PathBuf,
+    scripts_directory: PathBuf,
     host: String,
     token: String,
     running: Mutex<()>,
@@ -195,6 +196,10 @@ fn start() -> Result<()> {
     let token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
     let state = Arc::new(State {
         interpreter: interpreter.path.clone(),
+        scripts_directory: env::current_exe()?
+            .parent()
+            .ok_or("cannot locate application directory")?
+            .join("app_scripts"),
         host,
         token,
         running: Mutex::new(()),
@@ -447,6 +452,14 @@ fn serve(mut stream: &mut (impl Read + Write), state: &State) -> Result<()> {
                 json!({"error":"A script is already running."}),
             ),
         },
+        "/scripts" => match list_scripts(&state.scripts_directory) {
+            Ok(names) => ("200 OK", json!({"scripts": names})),
+            Err(error) => ("400 Bad Request", json!({"error": error.to_string()})),
+        },
+        "/script" => match read_script(&state.scripts_directory, &request.body) {
+            Ok(source) => ("200 OK", json!({"source": source})),
+            Err(error) => ("400 Bad Request", json!({"error": error.to_string()})),
+        },
         "/stop" => {
             state.cancel.store(true, Ordering::SeqCst);
             ("200 OK", json!({"ok":true}))
@@ -467,6 +480,51 @@ fn serve(mut stream: &mut (impl Read + Write), state: &State) -> Result<()> {
         &serde_json::to_vec(&result)?,
     )?;
     Ok(())
+}
+
+fn list_scripts(directory: &Path) -> Result<Vec<String>> {
+    let entries = match fs::read_dir(directory) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error.into()),
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_file()
+            && path.extension().and_then(|ext| ext.to_str()) == Some("scripta")
+            && entry.metadata()?.len() <= MAX_SOURCE as u64
+            && let Some(name) = entry.file_name().to_str()
+        {
+            names.push(name.to_owned());
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+fn read_script(directory: &Path, body: &[u8]) -> Result<String> {
+    let request: Value = serde_json::from_slice(body)?;
+    let name = request["name"].as_str().ok_or("name must be a string")?;
+    if name.contains(['/', '\\'])
+        || Path::new(name).file_name().and_then(|name| name.to_str()) != Some(name)
+        || Path::new(name).extension().and_then(|ext| ext.to_str()) != Some("scripta")
+    {
+        return Err("Choose a .scripta file from app_scripts".into());
+    }
+    let path = directory.join(name);
+    if !fs::symlink_metadata(&path)?.file_type().is_file() {
+        return Err("Script must be a regular file".into());
+    }
+    let mut source = String::new();
+    fs::File::open(path)?
+        .take(MAX_SOURCE as u64 + 1)
+        .read_to_string(&mut source)?;
+    if source.len() > MAX_SOURCE {
+        return Err("Script exceeds 256 KiB".into());
+    }
+    Ok(source)
 }
 
 struct ChildGuard(Box<dyn StdChildWrapper>);
@@ -671,6 +729,7 @@ mod tests {
 
     fn test_state() -> State {
         State {
+            scripts_directory: PathBuf::from("app_scripts"),
             interpreter: PathBuf::from(
                 env::var_os("SCR_TEST_BIN")
                     .expect("Set SCR_TEST_BIN to the built scr executable for execution tests"),
@@ -682,6 +741,44 @@ mod tests {
             shutdown: AtomicBool::new(false),
             connections: AtomicUsize::new(0),
         }
+    }
+
+    #[test]
+    fn script_library_lists_and_loads_only_bounded_scripta_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().join("app_scripts");
+        assert!(list_scripts(&root).unwrap().is_empty());
+        fs::create_dir(&root).unwrap();
+        fs::write(root.join("zebra.scripta"), "echo 2;").unwrap();
+        fs::write(root.join("advanced demo.scripta"), "echo 1;").unwrap();
+        fs::write(root.join("old.scr"), "ignored").unwrap();
+        fs::write(root.join("large.scripta"), vec![b' '; MAX_SOURCE + 1]).unwrap();
+        fs::create_dir(root.join("folder.scripta")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(root.join("zebra.scripta"), root.join("link.scripta")).unwrap();
+        assert_eq!(
+            list_scripts(&root).unwrap(),
+            vec!["advanced demo.scripta", "zebra.scripta"]
+        );
+        let read =
+            |name: &str| read_script(&root, &serde_json::to_vec(&json!({"name":name})).unwrap());
+        assert_eq!(read("advanced demo.scripta").unwrap(), "echo 1;");
+        for name in [
+            "../zebra.scripta",
+            "..\\zebra.scripta",
+            "old.scr",
+            "large.scripta",
+            "folder.scripta",
+            "missing.scripta",
+            "link.scripta",
+        ] {
+            assert!(read(name).is_err(), "must reject {name}");
+        }
+        // A refresh discovers newly added scripts; selecting rereads changed content.
+        fs::write(root.join("new.scripta"), "echo 3;").unwrap();
+        assert_eq!(list_scripts(&root).unwrap().len(), 3);
+        fs::write(root.join("zebra.scripta"), "echo 4;").unwrap();
+        assert_eq!(read("zebra.scripta").unwrap(), "echo 4;");
     }
 
     #[test]

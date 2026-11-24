@@ -1,0 +1,365 @@
+
+// ============================================
+// SCRIPTA TASK DEPENDENCY SCHEDULER
+// Object-oriented programming demonstration
+// ============================================
+
+class Task {
+    $id: string;
+    $name: string;
+    $duration: int;
+    $dependencies = [];
+    $state = "PENDING";
+
+    function __construct(
+        $id: string,
+        $name: string,
+        $duration: int,
+        $dependencies
+    ) {
+        $this->id = $id;
+        $this->name = $name;
+        $this->duration = $duration;
+        $this->dependencies = $dependencies;
+    }
+
+    function complete() {
+        $this->state = "COMPLETED";
+    }
+
+    function fail() {
+        $this->state = "FAILED";
+    }
+
+    function isComplete(): bool {
+        return $this->state === "COMPLETED";
+    }
+
+    function isFailed(): bool {
+        return $this->state === "FAILED";
+    }
+}
+
+class Scheduler {
+    $tasks = [];
+    $history = [];
+    $errors = [];
+    $clock = 0;
+    $completed = 0;
+    $failed = 0;
+
+    function addTask($task: Task) {
+        $this->tasks[] = $task;
+    }
+
+    function findTask($id: string) {
+        foreach ($this->tasks as $task) {
+            if ($task->id === $id) {
+                return $task;
+            }
+        }
+
+        return null;
+    }
+
+    function recordError($message: string) {
+        $this->errors[] = $message;
+        echo "[ERROR] {$message}\n";
+    }
+
+    function failTask($task: Task) {
+        if (!$task->isFailed()) {
+            $task->fail();
+            $this->failed = $this->failed + 1;
+        }
+    }
+
+    function resolve($id: string, $path): bool {
+        $task = $this->findTask($id);
+
+        if ($task === null) {
+            $this->recordError("Missing dependency: " . $id);
+            return false;
+        }
+
+        if ($task->isComplete()) {
+            return true;
+        }
+
+        if ($task->isFailed()) {
+            return false;
+        }
+
+        // Detect circular dependencies.
+        foreach ($path as $visited) {
+            if ($visited === $id) {
+                $chain = "";
+
+                foreach ($path as $node) {
+                    $chain = $chain . $node . " -> ";
+                }
+
+                $chain = $chain . $id;
+
+                $this->recordError(
+                    "Circular dependency: " . $chain
+                );
+
+                $this->failTask($task);
+                return false;
+            }
+        }
+
+        // Add current task to the recursion path.
+        $nextPath = [];
+
+        foreach ($path as $node) {
+            $nextPath[] = $node;
+        }
+
+        $nextPath[] = $id;
+
+        // Resolve all dependencies first.
+        foreach ($task->dependencies as $dependency) {
+            if (!$this->resolve($dependency, $nextPath)) {
+                $this->failTask($task);
+                return false;
+            }
+        }
+
+        $this->execute($task);
+        return true;
+    }
+
+    function execute($task: Task) {
+        $start = $this->clock;
+        $finish = $start + $task->duration;
+
+        $this->clock = $finish;
+
+        $task->complete();
+
+        $this->completed = $this->completed + 1;
+
+        $this->history[] = [
+            "id" => $task->id,
+            "name" => $task->name,
+            "start" => $start,
+            "finish" => $finish,
+            "duration" => $task->duration
+        ];
+
+        echo "[DONE] {$task->name}";
+        echo " | {$start}s -> {$finish}s\n";
+    }
+
+    function runTask($id: string) {
+        echo "\nResolving target: {$id}\n";
+        echo "----------------------------------------\n";
+
+        if ($this->resolve($id, [])) {
+            echo "[SUCCESS] Target {$id} completed\n";
+        } else {
+            echo "[FAILED] Target {$id} could not complete\n";
+        }
+    }
+
+    function timeline() {
+        echo "\n========================================\n";
+        echo "            EXECUTION TIMELINE\n";
+        echo "========================================\n";
+
+        foreach ($this->history as $entry) {
+            $bar = "";
+            $i = 0;
+
+            while ($i < $entry["start"]) {
+                $bar = $bar . ".";
+                $i = $i + 1;
+            }
+
+            while ($i < $entry["finish"]) {
+                $bar = $bar . "#";
+                $i = $i + 1;
+            }
+
+            while ($i < $this->clock) {
+                $bar = $bar . ".";
+                $i = $i + 1;
+            }
+
+            $name = $entry["name"];
+            $duration = $entry["duration"];
+
+            echo "{$bar} {$name} ({$duration}s)\n";
+        }
+    }
+
+    function report() {
+        echo "\n========================================\n";
+        echo "              TASK REPORT\n";
+        echo "========================================\n";
+
+        $pending = 0;
+        $total = 0;
+
+        foreach ($this->tasks as $task) {
+            $total = $total + 1;
+
+            if ($task->state === "PENDING") {
+                $pending = $pending + 1;
+            }
+
+            echo "[{$task->state}] {$task->name}\n";
+        }
+
+        echo "\nTotal tasks: {$total}\n";
+        echo "Completed: {$this->completed}\n";
+        echo "Failed: {$this->failed}\n";
+        echo "Pending: {$pending}\n";
+        echo "Simulated runtime: {$this->clock}s\n";
+    }
+
+    function errorReport() {
+        echo "\n========================================\n";
+        echo "              ERROR REPORT\n";
+        echo "========================================\n";
+
+        $number = 1;
+
+        foreach ($this->errors as $message) {
+            echo "{$number}. {$message}\n";
+            $number = $number + 1;
+        }
+    }
+}
+
+function verify($name: string, $actual: int, $expected: int) {
+    if ($actual === $expected) {
+        echo "[PASS] {$name}: {$actual}\n";
+        return 1;
+    }
+
+    echo "[FAIL] {$name}: expected {$expected}";
+    echo ", received {$actual}\n";
+
+    return 0;
+}
+
+// ============================================
+// CREATE BUILD PIPELINE
+// ============================================
+
+$scheduler = new Scheduler();
+
+// Intentionally register tasks out of order.
+
+$scheduler->addTask(
+    new Task("deploy", "Deploy", 3, ["package"])
+);
+
+$scheduler->addTask(
+    new Task("test", "Run tests", 4, ["compile", "lint"])
+);
+
+$scheduler->addTask(
+    new Task("init", "Initialize", 1, [])
+);
+
+$scheduler->addTask(
+    new Task("package", "Package", 2, ["test"])
+);
+
+$scheduler->addTask(
+    new Task("compile", "Compile", 5, ["install"])
+);
+
+$scheduler->addTask(
+    new Task("lint", "Lint", 2, ["install"])
+);
+
+$scheduler->addTask(
+    new Task("install", "Install packages", 3, ["init"])
+);
+
+// ============================================
+// CREATE CIRCULAR DEPENDENCY
+// ============================================
+
+$scheduler->addTask(
+    new Task("cycle_a", "Circular task A", 1, ["cycle_b"])
+);
+
+$scheduler->addTask(
+    new Task("cycle_b", "Circular task B", 1, ["cycle_c"])
+);
+
+$scheduler->addTask(
+    new Task("cycle_c", "Circular task C", 1, ["cycle_a"])
+);
+
+// ============================================
+// CREATE MISSING DEPENDENCY
+// ============================================
+
+$scheduler->addTask(
+    new Task("backup", "Database backup", 5, ["database"])
+);
+
+// ============================================
+// CREATE INDEPENDENT TASK
+// ============================================
+
+$scheduler->addTask(
+    new Task("cleanup", "Cleanup", 2, [])
+);
+
+// ============================================
+// EXECUTE PIPELINE
+// ============================================
+
+echo "========================================\n";
+echo "       SCRIPTA BUILD SCHEDULER\n";
+echo "========================================\n";
+
+$scheduler->runTask("deploy");
+$scheduler->runTask("cycle_a");
+$scheduler->runTask("backup");
+
+// Verify that completed dependencies do not
+// execute again.
+
+$scheduler->runTask("deploy");
+
+$scheduler->timeline();
+$scheduler->report();
+$scheduler->errorReport();
+
+// ============================================
+// AUTOMATED VALIDATION
+// ============================================
+
+echo "\nAUTOMATED TESTS\n";
+echo "----------------------------------------\n";
+
+$passed = 0;
+
+$passed = $passed + verify(
+    "Completed tasks", $scheduler->completed, 7
+);
+
+$passed = $passed + verify(
+    "Failed tasks", $scheduler->failed, 4
+);
+
+$passed = $passed + verify(
+    "Total execution time", $scheduler->clock, 20
+);
+
+echo "\nTests passed: {$passed}/3\n";
+
+if ($passed === 3) {
+    echo "ALL TESTS PASSED\n";
+} else {
+    echo "SOME TESTS FAILED\n";
+}

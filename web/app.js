@@ -21,6 +21,8 @@ history.replaceState(null, '', '/');
 let running = false;
 let closed = false;
 let previousExample = 'hello';
+let previousSource = examples.hello;
+const appScripts = new Map();
 let activeTab = 'output';
 let lastPainted = null;
 let lastRun = false;
@@ -175,21 +177,69 @@ async function run() {
     if (closed) setStatus('Session closed. You can close this tab.', 'closed');
   }
 }
-function chooseExample(name) {
-  if ($('editor').value !== examples[previousExample] && !confirm('Replace your current script with this example?')) {
+async function chooseExample(name) {
+  if ($('editor').value !== previousSource && !confirm('Replace your current script with this script?')) {
     $('example').value = previousExample;
     return;
   }
-  replaceSource(examples[name]);
+  const filename = appScripts.get(name);
+  let source = examples[name];
+  if (filename) {
+    try {
+      source = (await request('/script', {name: filename})).source;
+    } catch (error) {
+      $('example').value = previousExample;
+      setStatus(error.message, 'error');
+      return;
+    }
+  }
+  replaceSource(source);
+  previousSource = source;
   previousExample = name;
   $('example').value = name;
-  $('example-description').textContent = descriptions[name];
+  $('example-description').textContent = filename ? `From app_scripts / ${filename}` : descriptions[name];
+  $('editor-title').textContent = filename || 'playground.scripta';
   document.querySelectorAll('[data-example]').forEach(button => {
     const selected = button.dataset.example === name;
     button.classList.toggle('selected', selected);
     button.setAttribute('aria-pressed', String(selected));
   });
   $('editor').focus();
+}
+async function loadAppScripts() {
+  if (!token) return;
+  try {
+    const result = await request('/scripts');
+    const group = document.createElement('optgroup');
+    group.label = 'Your scripts';
+    for (const filename of result.scripts) {
+      const key = `file:${filename}`;
+      appScripts.set(key, filename);
+      const button = document.createElement('button');
+      button.className = 'example-card';
+      button.dataset.example = key;
+      button.setAttribute('aria-pressed', 'false');
+      const icon = document.createElement('span');
+      icon.className = 'example-icon';
+      icon.textContent = '>_';
+      const label = document.createElement('span');
+      const title = document.createElement('strong');
+      title.textContent = filename;
+      label.append(title);
+      button.append(icon, label);
+      button.addEventListener('click', () => chooseExample(key));
+      $('app-scripts').append(button);
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = filename;
+      group.append(option);
+    }
+    if (result.scripts.length) {
+      $('example').append(group);
+      $('app-scripts-count').textContent = result.scripts.length;
+      $('app-scripts-section').hidden = false;
+    }
+  } catch (error) { setStatus(`Could not load app_scripts: ${error.message}`); }
 }
 $('run').addEventListener('click', run);
 $('empty-run').addEventListener('click', run);
@@ -237,7 +287,7 @@ $('font-size').addEventListener('change', () => {
 });
 $('save').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([$('editor').value], {type:'text/plain;charset=utf-8'}));
-  const link = document.createElement('a'); link.href = url; link.download = 'playground.scripta'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = $('editor-title').textContent; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   setStatus('Script downloaded');
 });
@@ -270,9 +320,69 @@ document.addEventListener('keydown', event => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); run(); }
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); $('save').click(); }
 });
+const workspace = document.querySelector('.workspace');
+const divider = $('workspace-divider');
+let editorShare = 0.7;
+try {
+  const stored = Number(localStorage.getItem('scripta-editor-share'));
+  if (stored >= 0.2 && stored <= 0.8) editorShare = stored;
+} catch (_) {}
+function resizeWorkspace(share = editorShare, persist = false) {
+  const available = workspace.clientHeight - divider.offsetHeight;
+  if (available <= 0) return;
+  const minimum = Math.max(0.2, 280 / available);
+  const maximum = Math.min(0.8, 1 - 220 / available);
+  editorShare = Math.max(minimum, Math.min(maximum, share));
+  workspace.style.setProperty('--editor-fr', `${editorShare}fr`);
+  workspace.style.setProperty('--console-fr', `${1 - editorShare}fr`);
+  divider.setAttribute('aria-valuemin', Math.ceil(minimum * 100));
+  divider.setAttribute('aria-valuemax', Math.floor(maximum * 100));
+  divider.setAttribute('aria-valuenow', Math.round(editorShare * 100));
+  divider.setAttribute('aria-valuetext', `Editor ${Math.round(editorShare * 100)}%, console ${Math.round((1 - editorShare) * 100)}%`);
+  if (persist) {
+    try { localStorage.setItem('scripta-editor-share', editorShare); } catch (_) {}
+  }
+  syncScroll();
+}
+let resizePointer = null;
+let resizeOffset = 0;
+divider.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  resizePointer = event.pointerId;
+  resizeOffset = event.clientY - divider.getBoundingClientRect().top;
+  divider.setPointerCapture(event.pointerId);
+  divider.focus();
+  document.body.classList.add('resizing-workspace');
+});
+divider.addEventListener('pointermove', event => {
+  if (resizePointer !== event.pointerId) return;
+  const top = workspace.getBoundingClientRect().top + workspace.clientTop;
+  resizeWorkspace((event.clientY - top - resizeOffset) / (workspace.clientHeight - divider.offsetHeight));
+});
+function finishWorkspaceResize() {
+  if (resizePointer === null) return;
+  resizePointer = null;
+  document.body.classList.remove('resizing-workspace');
+  resizeWorkspace(editorShare, true);
+}
+divider.addEventListener('pointerup', finishWorkspaceResize);
+divider.addEventListener('pointercancel', finishWorkspaceResize);
+divider.addEventListener('lostpointercapture', finishWorkspaceResize);
+divider.addEventListener('dblclick', () => resizeWorkspace(0.7, true));
+divider.addEventListener('keydown', event => {
+  const step = event.shiftKey ? 0.1 : 0.02;
+  const share = {ArrowUp: editorShare - step, ArrowDown: editorShare + step, Home: 0.2, End: 0.8}[event.key];
+  if (share === undefined) return;
+  event.preventDefault();
+  resizeWorkspace(share, true);
+});
+new ResizeObserver(() => resizeWorkspace()).observe(workspace);
+resizeWorkspace();
 let saved;
 try { saved = localStorage.getItem('scripta-source'); } catch (_) {}
 replaceSource(saved == null ? examples.hello : saved.replace(/^<\?(?:scr|src)\b\s*/, ''));
 refreshConsole();
 toggleRun(false);
 if (!token) setStatus('Open the full URL from the launcher to connect.', 'idle');
+loadAppScripts();

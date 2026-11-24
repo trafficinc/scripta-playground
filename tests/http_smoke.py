@@ -92,6 +92,11 @@ def main():
             assert delayed_response.getheader("Content-Type").startswith("text/css")
             assert delayed_response.read()
         assert request("/", override={"Host": "attacker.example"})[0] == 403
+        assert request("/scripts", {}, {"X-Playground-Token": "wrong"})[0] == 403
+        assert request("/script", {"name": "demo.scripta"}, {"Origin": "https://attacker.example"})[0] == 403
+        status, data = request("/scripts", {})
+        assert status == 200 and isinstance(json.loads(data)["scripts"], list)
+        assert request("/script", {"name": "../outside.scripta"})[0] == 400
         assert request("/run", {"source": "echo 1;"}, {"Origin": "https://attacker.example"})[0] == 403
         assert request("/run", {"source": "echo 1;"}, {"X-Playground-Token": "wrong"})[0] == 403
         status, data = request("/run", {"source": 'echo "hello\\n"; exit(7);'})
